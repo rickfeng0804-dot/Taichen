@@ -29,13 +29,17 @@ export default function App() {
   const [source, setSource] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filters
+  const [districtFilter, setDistrictFilter] = useState('淡水區');
+  const [roadFilter, setRoadFilter] = useState('');
+  const [buildingTypeFilter, setBuildingTypeFilter] = useState('');
 
   useEffect(() => {
     async function fetchData() {
       try {
         setLoading(true);
-        const response = await fetch('/api/real-estate/tamsui');
+        const response = await fetch('/api/real-estate/ntpc');
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -51,12 +55,28 @@ export default function App() {
     fetchData();
   }, []);
 
+  // Extract unique options for dropdowns
+  const { districts, buildingTypes } = useMemo(() => {
+    const distSet = new Set<string>();
+    const typeSet = new Set<string>();
+    data.forEach(item => {
+      if (item['鄉鎮市區']) distSet.add(item['鄉鎮市區']);
+      if (item['建物型態']) typeSet.add(item['建物型態']);
+    });
+    return {
+      districts: Array.from(distSet).sort(),
+      buildingTypes: Array.from(typeSet).sort()
+    };
+  }, [data]);
+
   const filteredData = useMemo(() => {
-    return data.filter(item => 
-      (item['土地區段位置建物區段門牌'] || '').includes(searchTerm) ||
-      (item['建物型態'] || '').includes(searchTerm)
-    );
-  }, [data, searchTerm]);
+    return data.filter(item => {
+      const matchDistrict = districtFilter === '' || item['鄉鎮市區'] === districtFilter;
+      const matchRoad = roadFilter === '' || (item['土地區段位置建物區段門牌'] || '').includes(roadFilter);
+      const matchType = buildingTypeFilter === '' || (item['建物型態'] || '').includes(buildingTypeFilter);
+      return matchDistrict && matchRoad && matchType;
+    });
+  }, [data, districtFilter, roadFilter, buildingTypeFilter]);
 
   // Derived Analytics
   const analytics = useMemo(() => {
@@ -117,7 +137,7 @@ export default function App() {
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans">
         <Loader2 className="h-10 w-10 text-emerald-600 animate-spin mb-4" />
         <p className="text-slate-600 font-medium">載入實價登錄資料中...</p>
-        <p className="text-slate-400 text-sm mt-2">尋找淡水區一年內房屋買賣公開資料</p>
+        <p className="text-slate-400 text-sm mt-2">尋找新北市一年內房屋買賣公開資料</p>
       </div>
     );
   }
@@ -143,13 +163,13 @@ export default function App() {
       {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
               <div className="bg-emerald-100 p-2.5 rounded-xl">
                 <MapPin className="h-6 w-6 text-emerald-700" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">新北市淡水區房屋買賣</h1>
+                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">新北市房屋買賣實價登錄</h1>
                 <p className="text-sm text-slate-500 font-medium flex items-center gap-2 mt-0.5">
                   <span className="inline-flex items-center gap-1"><Calendar className="w-3 h-3"/> 近一年實價登錄</span>
                   <span className="text-slate-300">|</span>
@@ -159,18 +179,54 @@ export default function App() {
                 </p>
               </div>
             </div>
+          </div>
 
-            <div className="relative w-full md:w-72">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-slate-400" />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+            {/* 1. 行政區 Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">行政區</label>
+              <select
+                className="block w-full pl-3 pr-10 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
+                value={districtFilter}
+                onChange={(e) => setDistrictFilter(e.target.value)}
+              >
+                <option value="">全部行政區</option>
+                {districts.map(d => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 2. 路名 Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">路名 / 門牌</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
+                  placeholder="搜尋路段例如: 中正東路"
+                  value={roadFilter}
+                  onChange={(e) => setRoadFilter(e.target.value)}
+                />
               </div>
-              <input
-                type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
-                placeholder="搜尋路段、社區或建物型態..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+            </div>
+
+            {/* 3. 建物型態 Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">建物型態</label>
+              <select
+                className="block w-full pl-3 pr-10 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
+                value={buildingTypeFilter}
+                onChange={(e) => setBuildingTypeFilter(e.target.value)}
+              >
+                <option value="">全部型態</option>
+                {buildingTypes.map(t => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
@@ -226,7 +282,9 @@ export default function App() {
           >
             <div className="mb-6">
               <h2 className="text-lg font-bold text-slate-800">房價趨勢 (近一年)</h2>
-              <p className="text-sm text-slate-500">淡水區各月份平均與最高成交單價走勢</p>
+              <p className="text-sm text-slate-500">
+                {districtFilter ? `${districtFilter} 各月份平均` : '新北市各月份平均'}與最高成交單價走勢
+              </p>
             </div>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -288,6 +346,7 @@ export default function App() {
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-slate-50 text-slate-500 font-medium border-b border-slate-200">
                 <tr>
+                  <th className="px-6 py-4">行政區</th>
                   <th className="px-6 py-4">交易日期</th>
                   <th className="px-6 py-4">門牌 / 區段</th>
                   <th className="px-6 py-4">型態</th>
@@ -304,6 +363,11 @@ export default function App() {
 
                   return (
                     <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
+                          {item['鄉鎮市區']}
+                        </span>
+                      </td>
                       <td className="px-6 py-4 text-slate-600">
                         {parseTwDate(item['交易年月日'])}
                       </td>
@@ -329,7 +393,7 @@ export default function App() {
                 })}
                 {filteredData.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                       沒有找到符合條件的資料
                     </td>
                   </tr>

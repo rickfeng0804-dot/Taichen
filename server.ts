@@ -1,5 +1,4 @@
 import express from "express";
-import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import fs from "fs";
@@ -9,9 +8,9 @@ async function startServer() {
   const PORT = 3000;
 
   // Real Estate Open Data Endpoint proxy
-  app.get("/api/real-estate/tamsui", async (req, res) => {
+  app.get("/api/real-estate/ntpc", async (req, res) => {
     try {
-      const dataPath = path.join(process.cwd(), 'src/data/tamsui-real-estate.json');
+      const dataPath = path.join(process.cwd(), 'src/data/ntpc-real-estate.json');
       if (fs.existsSync(dataPath)) {
         const fileContent = fs.readFileSync(dataPath, 'utf8');
         const data = JSON.parse(fileContent);
@@ -26,6 +25,7 @@ async function startServer() {
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

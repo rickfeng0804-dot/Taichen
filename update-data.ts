@@ -47,8 +47,8 @@ async function updateData() {
         
         for (let i = 1; i < records.length; i++) {
           const r = records[i];
-          // Filter for Tamsui
-          if (r['鄉鎮市區'] === '淡水區') {
+          // Filter for all of New Taipei City
+          if (r['鄉鎮市區']) { // Keep all records from the New Taipei file
             allData.push({
               "鄉鎮市區": r['鄉鎮市區'],
               "交易標的": r['交易標的'],
@@ -62,7 +62,7 @@ async function updateData() {
             });
           }
         }
-        console.log(`Extracted ${allData.length} total Tamsui records after ${season}`);
+        console.log(`Extracted ${allData.length} total NTPC records after ${season}`);
       } catch (err) {
         console.error(`Error downloading/processing ${season}:`, err.message);
       }
@@ -71,10 +71,10 @@ async function updateData() {
     if (allData.length > 0) {
       // Sort by transaction date descending
       allData.sort((a, b) => parseInt(b['交易年月日'] || '0') - parseInt(a['交易年月日'] || '0'));
-      fs.writeFileSync(path.join(dataDir, 'tamsui-real-estate.json'), JSON.stringify(allData, null, 2));
-      console.log(`Success! Saved ${allData.length} records to src/data/tamsui-real-estate.json`);
+      fs.writeFileSync(path.join(dataDir, 'ntpc-real-estate.json'), JSON.stringify(allData, null, 2));
+      console.log(`Success! Saved ${allData.length} records to src/data/ntpc-real-estate.json`);
     } else {
-      console.error("No Tamsui data found in the provided seasons.");
+      console.error("No NTPC data found in the provided seasons.");
     }
 
   } catch (e) {
