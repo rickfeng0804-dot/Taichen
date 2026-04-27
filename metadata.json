@@ -1,6 +1,6 @@
 {
-  "name": "",
-  "description": "",
+  "name": "新北淡水區房屋買賣查詢",
+  "description": "以實價登錄為主，未來加入比屋網或樂居網等資訊",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

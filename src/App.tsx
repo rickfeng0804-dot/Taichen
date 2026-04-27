@@ -32,8 +32,36 @@ export default function App() {
   
   // Filters
   const [districtFilter, setDistrictFilter] = useState('淡水區');
+  const [tamsuiLifeCircleFilter, setTamsuiLifeCircleFilter] = useState('');
+  const [liFilter, setLiFilter] = useState('');
+  const [linFilter, setLinFilter] = useState('');
   const [roadFilter, setRoadFilter] = useState('');
   const [buildingTypeFilter, setBuildingTypeFilter] = useState('');
+
+  // Life Circle Definition for Tamsui
+  const TAMSUI_LIFE_CIRCLES = [
+    "淡水老街商圈 (傳統行政與商業中心)",
+    "淡海新市鎮 (人口成長最快開發區)",
+    "竹圍與紅樹林 (捷運站核心住宅區)",
+    "淡大大學城 (淡江大學學生商圈)",
+    "沙崙與漁人碼頭 (觀光景點濱海區)"
+  ];
+
+  const getTamsuiLifeCircle = (address: string) => {
+    if (!address) return "其他";
+    // 竹圍與紅樹林
+    if (/中正東路|民權路|民族路|民生路|紅樹林|坪頂路|八勢|竿蓁/.test(address)) return TAMSUI_LIFE_CIRCLES[2];
+    // 淡海新市鎮
+    if (/新市|濱海路|義山路|崁頂|中山北路二段|中山北路三段|沙崙路一段/.test(address)) return TAMSUI_LIFE_CIRCLES[1];
+    // 沙崙與漁人碼頭
+    if (/(觀海路|中正路一段|中正路二段|沙崙路)/.test(address) && !(/沙崙路一段/.test(address))) return TAMSUI_LIFE_CIRCLES[4];
+    // 淡大大學城
+    if (/學府路|大學路|水源街|北新路|英專路/.test(address)) return TAMSUI_LIFE_CIRCLES[3];
+    // 淡水老街商圈
+    if (/中正路|重建街|清水街|中山路|文化路|三民街/.test(address) && !(/中正路一段|中正路二段/.test(address))) return TAMSUI_LIFE_CIRCLES[0];
+    
+    return "其他";
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -71,12 +99,18 @@ export default function App() {
 
   const filteredData = useMemo(() => {
     return data.filter(item => {
+      const address = item['土地區段位置建物區段門牌'] || '';
       const matchDistrict = districtFilter === '' || item['鄉鎮市區'] === districtFilter;
-      const matchRoad = roadFilter === '' || (item['土地區段位置建物區段門牌'] || '').includes(roadFilter);
+      const matchLifeCircle = tamsuiLifeCircleFilter === '' || (item['鄉鎮市區'] === '淡水區' && getTamsuiLifeCircle(address) === tamsuiLifeCircleFilter);
+      
+      // Many raw open data lines do not have 里/鄰. Substring match to attempt to support it. 
+      const matchLi = liFilter === '' || address.includes(liFilter + '里') || address.includes(liFilter);
+      const matchLin = linFilter === '' || address.includes(linFilter + '鄰') || address.includes(linFilter);
+      const matchRoad = roadFilter === '' || address.includes(roadFilter);
       const matchType = buildingTypeFilter === '' || (item['建物型態'] || '').includes(buildingTypeFilter);
-      return matchDistrict && matchRoad && matchType;
+      return matchDistrict && matchLifeCircle && matchLi && matchLin && matchRoad && matchType;
     });
-  }, [data, districtFilter, roadFilter, buildingTypeFilter]);
+  }, [data, districtFilter, tamsuiLifeCircleFilter, liFilter, linFilter, roadFilter, buildingTypeFilter]);
 
   // Derived Analytics
   const analytics = useMemo(() => {
@@ -181,20 +215,66 @@ export default function App() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-slate-100 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3 border-t border-slate-100 pt-4">
             {/* 1. 行政區 Filter */}
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">行政區</label>
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">區 (District)</label>
               <select
-                className="block w-full pl-3 pr-10 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
+                className="block w-full pl-3 pr-8 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
                 value={districtFilter}
-                onChange={(e) => setDistrictFilter(e.target.value)}
+                onChange={(e) => {
+                  setDistrictFilter(e.target.value);
+                  if (e.target.value !== '淡水區') {
+                    setTamsuiLifeCircleFilter('');
+                  }
+                }}
               >
-                <option value="">全部行政區</option>
+                <option value="">全部區</option>
                 {districts.map(d => (
                   <option key={d} value={d}>{d}</option>
                 ))}
               </select>
+            </div>
+
+            {/* 1.0 淡水生活圈 Filter (Only visible if District is 淡水區) */}
+            {districtFilter === '淡水區' && (
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider text-emerald-600">淡水生活圈</label>
+                <select
+                  className="block w-full pl-3 pr-8 py-2 border border-emerald-200 rounded-lg leading-5 bg-emerald-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors text-emerald-900"
+                  value={tamsuiLifeCircleFilter}
+                  onChange={(e) => setTamsuiLifeCircleFilter(e.target.value)}
+                >
+                  <option value="">全部生活圈</option>
+                  {TAMSUI_LIFE_CIRCLES.map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* 1.1 里 Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">里 (Village)</label>
+              <input
+                type="text"
+                className="block w-full px-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
+                placeholder="例如: 竿蓁里"
+                value={liFilter}
+                onChange={(e) => setLiFilter(e.target.value)}
+              />
+            </div>
+
+            {/* 1.2 鄰 Filter */}
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">鄰 (Neighborhood)</label>
+              <input
+                type="text"
+                className="block w-full px-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
+                placeholder="例如: 1鄰"
+                value={linFilter}
+                onChange={(e) => setLinFilter(e.target.value)}
+              />
             </div>
 
             {/* 2. 路名 Filter */}
@@ -207,7 +287,7 @@ export default function App() {
                 <input
                   type="text"
                   className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
-                  placeholder="搜尋路段例如: 中正東路"
+                  placeholder="例如: 中正東路"
                   value={roadFilter}
                   onChange={(e) => setRoadFilter(e.target.value)}
                 />
@@ -218,7 +298,7 @@ export default function App() {
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider">建物型態</label>
               <select
-                className="block w-full pl-3 pr-10 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
+                className="block w-full pl-3 pr-8 py-2 border border-slate-200 rounded-lg leading-5 bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
                 value={buildingTypeFilter}
                 onChange={(e) => setBuildingTypeFilter(e.target.value)}
               >
